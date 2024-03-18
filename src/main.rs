@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+
 use anyhow::Result;
-use clap::ArgMatches;
+use clap::{Arg, ArgMatches};
 
 // this will find all files ending in .md in current directory and down the fs tree.
 fn find_note_files(root: &PathBuf) -> Result<Vec<PathBuf>> {
@@ -38,7 +40,24 @@ fn list(_: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn edit(_: &ArgMatches) -> Result<()> {
+fn edit(args: &ArgMatches) -> Result<()> {
+    let pattern: &String = args.get_one("pattern").unwrap();
+    let root = std::env::current_dir()?;
+    let notes = find_note_files(&root)?;
+    let matcher = SkimMatcherV2::default();
+    let mut matches = vec![];
+    for note in notes {
+        let file_name = note.to_str().unwrap();
+        let _match = matcher.fuzzy_match(file_name, pattern);
+        if _match.is_some() {
+            matches.push(file_name.to_string());
+        }
+    }
+    if matches.len() > 1 {
+        println!("{}", matches.join("\n"));
+    } else {
+        println!("editing {}", matches[0]);
+    }
     Ok(())
 }
 
@@ -46,12 +65,13 @@ fn main() {
     let args = clap::Command::new("notemanager")
         .about("notemanager program.")
         .version("0.0.1")
-        .subcommand(clap::Command::new("list"))
+        .subcommand(clap::Command::new("list").about("list all note files in your current working directory."))
+        .subcommand(clap::Command::new("edit").about("edit a notefile in your current working directory.").arg(Arg::new("pattern")))
         .get_matches();
 
     match args.subcommand() {
         Some(("list", args)) => list(args).unwrap(),
-        Some(("edit", args)) => list(args).unwrap(),
+        Some(("edit", args)) => edit(args).unwrap(),
         _ => todo!(),
     }
 }

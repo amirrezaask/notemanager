@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.81"
 clap = "4.5.3"
+fuzzy-matcher = "0.3.7"
