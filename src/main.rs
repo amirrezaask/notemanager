@@ -37,14 +37,20 @@ fn list(_: &ArgMatches) -> Result<()> {
         println!("{}", note.strip_prefix(&root).unwrap().to_str().unwrap())
     }
 
-
-
     Ok(())
 }
 
 fn sync() -> Result<()> {
-    std::process::Command::new("git").args(["add", "."]).output()?;
-    std::process::Command::new("git").args(["commit", "-m", &format!("update {}", chrono::Local::now().format("%d-%m-%y %H:%M"))]).output()?;
+    std::process::Command::new("git")
+        .args(["add", "."])
+        .output()?;
+    std::process::Command::new("git")
+        .args([
+            "commit",
+            "-m",
+            &format!("update {}", chrono::Local::now().format("%d-%m-%y %H:%M")),
+        ])
+        .output()?;
     std::process::Command::new("git").args(["push"]).output()?;
 
     Ok(())
@@ -64,7 +70,14 @@ fn edit(args: &ArgMatches) -> Result<()> {
         }
     }
     if matches.len() > 1 {
-        println!("{}", matches.iter().map(|p| p.to_str().unwrap()).collect::<Vec<&str>>().join("\n"))
+        println!(
+            "{}",
+            matches
+                .iter()
+                .map(|p| p.to_str().unwrap())
+                .collect::<Vec<&str>>()
+                .join("\n")
+        )
     } else {
         println!("editing {}", matches[0].to_str().unwrap());
         edit::edit_file(&matches[0])?;
@@ -78,8 +91,15 @@ fn main() {
     let args = clap::Command::new("notemanager")
         .about("notemanager program.")
         .version("0.0.1")
-        .subcommand(clap::Command::new("list").about("list all note files in your current working directory."))
-        .subcommand(clap::Command::new("edit").about("edit a notefile in your current working directory.").arg(Arg::new("pattern")))
+        .subcommand(
+            clap::Command::new("list")
+                .about("list all note files in your current working directory."),
+        )
+        .subcommand(
+            clap::Command::new("edit")
+                .about("edit a notefile in your current working directory.")
+                .arg(Arg::new("pattern")),
+        )
         .get_matches();
 
     match args.subcommand() {
