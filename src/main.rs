@@ -37,6 +37,16 @@ fn list(_: &ArgMatches) -> Result<()> {
         println!("{}", note.strip_prefix(&root).unwrap().to_str().unwrap())
     }
 
+
+
+    Ok(())
+}
+
+fn sync() -> Result<()> {
+    std::process::Command::new("git").args(["add", "."]).output()?;
+    std::process::Command::new("git").args(["commit", "-m", &format!("update {}", chrono::Local::now().format("%d-%m-%y %H:%M"))]).output()?;
+    std::process::Command::new("git").args(["push"]).output()?;
+
     Ok(())
 }
 
@@ -50,13 +60,16 @@ fn edit(args: &ArgMatches) -> Result<()> {
         let file_name = note.to_str().unwrap();
         let _match = matcher.fuzzy_match(file_name, pattern);
         if _match.is_some() {
-            matches.push(file_name.to_string());
+            matches.push(note);
         }
     }
     if matches.len() > 1 {
-        println!("{}", matches.join("\n"));
+        println!("{}", matches.iter().map(|p| p.to_str().unwrap()).collect::<Vec<&str>>().join("\n"))
     } else {
-        println!("editing {}", matches[0]);
+        println!("editing {}", matches[0].to_str().unwrap());
+        edit::edit_file(&matches[0])?;
+        println!("File {} updated, Syncing...", matches[0].to_str().unwrap());
+        sync()?
     }
     Ok(())
 }
