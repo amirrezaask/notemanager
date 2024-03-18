@@ -1,42 +1,49 @@
-use std::path::PathBuf;
-
+use std::{fs, path::Path};
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use anyhow::{bail, Context, Result};
+use clap::{Parser, Subcommand};
 
-use anyhow::Result;
-use clap::{Arg, ArgMatches};
 
-// this will find all files ending in .md in current directory and down the fs tree.
-fn find_note_files(root: &PathBuf) -> Result<Vec<PathBuf>> {
-    let mut files: Vec<PathBuf> = vec![];
-    let dir_result = std::fs::read_dir(root).unwrap();
-
-    for res in dir_result {
-        let res = res.unwrap();
-        let file_name = res.file_name();
-        let file_name = file_name.to_str().unwrap();
-        if res.file_type()?.is_dir() {
-            let dir_path = file_name;
-            let mut entries = find_note_files(&root.join(&dir_path)).unwrap();
-            files.append(&mut entries);
-        } else if res.file_type().unwrap().is_file()
-            && !file_name.contains(".git")
-            && file_name.contains(".md")
-        {
-            files.push(res.path());
-        }
-    }
-
-    Ok(files)
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+pub struct Cli {
+    #[command(subcommand)]
+    command: Commands,
 }
 
-fn list(_: &ArgMatches) -> Result<()> {
+#[derive(Debug, Subcommand)]
+enum Commands {
+    /// list all note files in your current working directory
+    List,
+    /// edit a notefile in your current working directory, if given pattern has one match edit that otherwise print all options
+    Edit{
+        #[arg(required = true)]
+        pattern: String,
+    },
+}
+
+// this will find all files ending in .md in current directory and down the fs tree.
+fn find_note_files(root: impl AsRef<Path>) -> Result<Vec<String>> {
+    std::fs::read_dir(root.as_ref())
+        .with_context(|| format!("Could not read directory `{:?}`", root.as_ref()))?
+        .filter_map(|maybe_entry| maybe_entry.ok())
+        .map(|entry| entry.path())
+        .filter(|filename| filename.is_dir() || filename.is_file())
+        .filter_map(|filename| filename.to_str().map(String::from))
+        .try_fold(Vec::new(), |mut file_list, filename| {
+            if fs::metadata(&filename).unwrap().is_dir() {
+                file_list.append(&mut find_note_files(filename)?)
+            } else if !filename.contains(".md") && filename.ends_with(".md") {
+                file_list.push(filename)
+            }
+            Ok(file_list)
+        })
+}
+
+fn list() -> Result<()> {
     let root = std::env::current_dir()?;
     let notes = find_note_files(&root)?;
-
-    for note in notes {
-        println!("{}", note.strip_prefix(&root).unwrap().to_str().unwrap())
-    }
-
+    notes.iter().for_each(|note| println!("{note}"));
     Ok(())
 }
 
@@ -58,55 +65,30 @@ fn sync() -> Result<()> {
     Ok(())
 }
 
-fn edit(args: &ArgMatches) -> Result<()> {
-    let pattern: &String = args.get_one("pattern").unwrap();
+fn edit(pattern: String) -> Result<()> {
     let root = std::env::current_dir()?;
-    let notes = find_note_files(&root)?;
     let matcher = SkimMatcherV2::default();
-    let mut matches = vec![];
-    for note in notes {
-        let file_name = note.to_str().unwrap();
-        let _match = matcher.fuzzy_match(file_name, pattern);
-        if _match.is_some() {
-            matches.push(note);
-        }
-    }
-    if matches.len() > 1 {
-        println!(
-            "{}",
-            matches
-                .iter()
-                .map(|p| p.to_str().unwrap())
-                .collect::<Vec<&str>>()
-                .join("\n")
-        )
-    } else {
-        println!("Editing {}", matches[0].to_str().unwrap());
+    let matches: Vec<_> = find_note_files(&root)?
+        .into_iter()
+        .filter(|filename| matcher.fuzzy_match(filename, &pattern).is_some())
+        .collect();
+    if matches.len() == 1 {
+        println!("Editing {}", matches[0]);
         edit::edit_file(&matches[0])?;
-        println!("File {} updated, Syncing...", matches[0].to_str().unwrap());
-        sync()?
+        println!("File {} updated, Syncing...", matches[0]);
+        sync()
+    } else if matches.len() > 1 {
+        println!("{}", matches.join("\n"));
+        Ok(())
+    } else {
+        bail!("Could not find any match for pattern {pattern:?}")
     }
-    Ok(())
 }
 
-fn main() {
-    let args = clap::Command::new("notemanager")
-        .about("notemanager program.")
-        .version("0.0.1")
-        .subcommand(
-            clap::Command::new("list")
-                .about("list all note files in your current working directory."),
-        )
-        .subcommand(
-            clap::Command::new("edit")
-                .about("edit a notefile in your current working directory, if given pattern has one match edit that otherwise print all options.")
-                .arg(Arg::new("pattern")),
-        )
-        .get_matches();
-
-    match args.subcommand() {
-        Some(("list", args)) => list(args).unwrap(),
-        Some(("edit", args)) => edit(args).unwrap(),
-        _ => todo!(),
+fn main() -> Result<()> {
+    let args = Cli::parse();
+    match args.command {
+        Commands::List => list(),
+        Commands::Edit { pattern } => edit(pattern),
     }
 }
