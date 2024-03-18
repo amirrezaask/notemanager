@@ -1,5 +1,6 @@
 [package]
 name = "notemanager"
+descdescription = "notemanager program"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,6 +9,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.81"
 chrono = "0.4.35"
-clap = "4.5.3"
+clap = {version = "4.5.0", features = ["derive"]}
 edit = "0.1.5"
 fuzzy-matcher = "0.3.7"
