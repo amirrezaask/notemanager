@@ -44,6 +44,7 @@ fn sync() -> Result<()> {
     std::process::Command::new("git")
         .args(["add", "."])
         .output()?;
+
     std::process::Command::new("git")
         .args([
             "commit",
@@ -51,6 +52,7 @@ fn sync() -> Result<()> {
             &format!("update {}", chrono::Local::now().format("%d-%m-%y %H:%M")),
         ])
         .output()?;
+
     std::process::Command::new("git").args(["push"]).output()?;
 
     Ok(())
@@ -79,7 +81,7 @@ fn edit(args: &ArgMatches) -> Result<()> {
                 .join("\n")
         )
     } else {
-        println!("editing {}", matches[0].to_str().unwrap());
+        println!("Editing {}", matches[0].to_str().unwrap());
         edit::edit_file(&matches[0])?;
         println!("File {} updated, Syncing...", matches[0].to_str().unwrap());
         sync()?
@@ -97,7 +99,7 @@ fn main() {
         )
         .subcommand(
             clap::Command::new("edit")
-                .about("edit a notefile in your current working directory.")
+                .about("edit a notefile in your current working directory, if given pattern has one match edit that otherwise print all options.")
                 .arg(Arg::new("pattern")),
         )
         .get_matches();
