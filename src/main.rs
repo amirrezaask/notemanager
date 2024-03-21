@@ -1,29 +1,10 @@
-use std::{fs, path::Path};
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-
-
-#[derive(Parser)]
-#[command(version, about, long_about = None)]
-pub struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Debug, Subcommand)]
-enum Commands {
-    /// list all note files in your current working directory
-    List,
-    /// edit a notefile in your current working directory, if given pattern has one match edit that otherwise print all options
-    Edit{
-        #[arg(required = true)]
-        pattern: String,
-    },
-}
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use std::{fs, path::Path};
 
 // this will find all files ending in .md in current directory and down the fs tree.
-fn find_note_files(root: impl AsRef<Path>) -> Result<Vec<String>> {
+pub fn find_note_files(root: impl AsRef<Path>) -> Result<Vec<String>> {
     std::fs::read_dir(root.as_ref())
         .with_context(|| format!("Could not read directory `{:?}`", root.as_ref()))?
         .filter_map(|maybe_entry| maybe_entry.ok())
@@ -40,14 +21,14 @@ fn find_note_files(root: impl AsRef<Path>) -> Result<Vec<String>> {
         })
 }
 
-fn list() -> Result<()> {
+pub fn list() -> Result<()> {
     let root = std::env::current_dir()?;
     let notes = find_note_files(&root)?;
     notes.iter().for_each(|note| println!("{note}"));
     Ok(())
 }
 
-fn sync() -> Result<()> {
+pub fn sync() -> Result<()> {
     std::process::Command::new("git")
         .args(["add", "."])
         .output()?;
@@ -65,7 +46,7 @@ fn sync() -> Result<()> {
     Ok(())
 }
 
-fn edit(pattern: String) -> Result<()> {
+pub fn edit(pattern: String) -> Result<()> {
     let root = std::env::current_dir()?;
     let matcher = SkimMatcherV2::default();
     let matches: Vec<_> = find_note_files(&root)?
@@ -85,10 +66,42 @@ fn edit(pattern: String) -> Result<()> {
     }
 }
 
+fn find_tag(tag: String) -> Result<()> {
+    println!("finding tag {}", tag);
+    let root = std::env::current_dir()?;
+
+    let files = find_note_files(root);
+    Ok(())
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+pub struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    /// list all note files in your current working directory
+    List,
+    /// edit a notefile in your current working directory, if given pattern has one match edit that otherwise print all options
+    Edit {
+        #[arg(required = true)]
+        pattern: String,
+    },
+
+    Find {
+        #[arg(required = true)]
+        tag: String,
+    },
+}
+
 fn main() -> Result<()> {
     let args = Cli::parse();
     match args.command {
         Commands::List => list(),
         Commands::Edit { pattern } => edit(pattern),
+        Commands::Find { tag } => find_tag(tag),
     }
 }

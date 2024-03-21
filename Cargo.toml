@@ -12,3 +12,4 @@ chrono = "0.4.35"
 clap = {version = "4.5.0", features = ["derive"]}
 edit = "0.1.5"
 fuzzy-matcher = "0.3.7"
+markdown = "1.0.0-alpha.16"
