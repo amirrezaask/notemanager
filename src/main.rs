@@ -68,8 +68,12 @@ pub fn edit(pattern: String) -> Result<()> {
 
 fn main() -> Result<()> {
     let command = clap::Command::new("notemanager")
-        .subcommand(clap::Command::new("list"))
-        .subcommand(clap::Command::new("edit").arg(clap::Arg::new("pattern")));
+        .subcommand(clap::Command::new("list").alias("l"))
+        .subcommand(
+            clap::Command::new("edit")
+                .alias("e")
+                .arg(clap::Arg::new("pattern")),
+        );
 
     let matches = command.get_matches();
     match matches.subcommand() {
