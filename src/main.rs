@@ -14,7 +14,7 @@ pub fn find_note_files(root: impl AsRef<Path>) -> Result<Vec<String>> {
         .try_fold(Vec::new(), |mut file_list, filename| {
             if fs::metadata(&filename).unwrap().is_dir() {
                 file_list.append(&mut find_note_files(filename)?)
-            } else if !filename.contains(".md") && filename.ends_with(".md") {
+            } else if filename.contains(".md") && filename.ends_with(".md") {
                 file_list.push(filename)
             }
             Ok(file_list)
@@ -66,42 +66,15 @@ pub fn edit(pattern: String) -> Result<()> {
     }
 }
 
-fn find_tag(tag: String) -> Result<()> {
-    println!("finding tag {}", tag);
-    let root = std::env::current_dir()?;
-
-    let files = find_note_files(root);
-    Ok(())
-}
-
-#[derive(Parser)]
-#[command(version, about, long_about = None)]
-pub struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Debug, Subcommand)]
-enum Commands {
-    /// list all note files in your current working directory
-    List,
-    /// edit a notefile in your current working directory, if given pattern has one match edit that otherwise print all options
-    Edit {
-        #[arg(required = true)]
-        pattern: String,
-    },
-
-    Find {
-        #[arg(required = true)]
-        tag: String,
-    },
-}
-
 fn main() -> Result<()> {
-    let args = Cli::parse();
-    match args.command {
-        Commands::List => list(),
-        Commands::Edit { pattern } => edit(pattern),
-        Commands::Find { tag } => find_tag(tag),
+    let command = clap::Command::new("notemanager")
+        .subcommand(clap::Command::new("list"))
+        .subcommand(clap::Command::new("edit").arg(clap::Arg::new("pattern")));
+
+    let matches = command.get_matches();
+    match matches.subcommand() {
+        Some(("list", _args)) => list(),
+        Some(("edit", _args)) => edit(_args.get_one::<String>("pattern").unwrap().to_string()),
+        _ => todo!(),
     }
 }
